@@ -1,9 +1,58 @@
+// --- PHONE NUMBER PARSER ---
+// Robust regex for international phone numbers (Nigerian +234, international, etc.)
+const PHONE_REGEX = /\+?\d{1,4}[\s\-.]?\(?\d{1,4}\)?[\s\-.]?\d{1,4}[\s\-.]?\d{1,4}[\s\-.]?\d{0,9}/g;
+
+function extractPhones(text) {
+  if (!text) return [];
+  const matches = text.match(PHONE_REGEX);
+  if (!matches) return [];
+  // Filter: must have at least 10 digits total
+  return matches.filter(m => m.replace(/\D/g, '').length >= 10);
+}
+
+function normalizePhone(phone) {
+  // Remove all non-digits except leading +
+  return phone.replace(/[^\d+]/g, '');
+}
+
+function generateWaLink(phone) {
+  const normalized = normalizePhone(phone);
+  // Remove leading + for wa.me format
+  const digits = normalized.replace(/^\+/, '');
+  return `https://wa.me/${digits}`;
+}
+
+function cleanName(text, phoneToRemove) {
+  if (!text) return '';
+  let name = text;
+  // Remove the phone number from name if present
+  if (phoneToRemove) {
+    name = name.replace(phoneToRemove, '');
+  }
+  // Remove "~" prefix
+  name = name.replace(/^~\s*/, '');
+  // Remove "Loading About…" and similar
+  name = name.replace(/Loading About…/gi, '');
+  name = name.replace(/\n/g, ' ');
+  // Clean up multiple spaces
+  name = name.replace(/\s+/g, ' ').trim();
+  // If name is just phone number pattern, return empty
+  if (/^\+?\d[\d\s\-+.]+$/.test(name)) return '';
+  return name;
+}
+
+function detectRole(text) {
+  const lower = (text || '').toLowerCase();
+  if (lower.includes('group admin') || lower.includes('admin')) return 'admin';
+  return 'member';
+}
+
 // --- 1. UI INJECTION ---
 const panelHTML = `
   <div id="wa-scraper-header">
     <div style="display:flex; align-items:center; gap:8px;">
       <img src="${chrome.runtime.getURL('logo.png')}" style="width:20px; height:20px; border-radius:50%;">
-      <span>Group Scraper</span>
+      <span>Phone Grabber</span>
     </div>
     <span id="wa-scraper-close">&times;</span>
   </div>
@@ -17,7 +66,7 @@ const panelHTML = `
     </div>
 
     <div class="scraper-stat">
-      Found: <span id="scraper-count">0</span> members
+      Found: <span id="scraper-count">0</span> phone numbers
     </div>
     <div id="scraper-status" style="font-size:11px; text-align:center; color:#888; margin-top:5px;">
       Ready
@@ -45,7 +94,7 @@ const closeBtn = document.getElementById('wa-scraper-close');
 let isPanelOpen = false;
 let isSelecting = false;
 let isScraping = false;
-let scrapedData = new Map(); 
+let rawScrapedData = []; // Raw data collected during scraping
 let scrollInterval = null;
 let hoverEl = null;
 let containerEl = null;
@@ -72,7 +121,7 @@ btnSelect.addEventListener('click', () => {
   
   // Clean UI
   actionButtons.style.display = 'none';
-  scrapedData.clear();
+  rawScrapedData = [];
   countSpan.innerText = "0";
 
   document.addEventListener('mouseover', onHover, true);
@@ -175,7 +224,11 @@ function stopScraping() {
   btnStop.style.display = 'none';
   btnSelect.style.display = 'block';
   
-  if (scrapedData.size > 0) {
+  // Process and count unique phones
+  const processed = processAllData();
+  countSpan.innerText = processed.length;
+  
+  if (processed.length > 0) {
     actionButtons.style.display = 'flex';
   }
 }
@@ -187,24 +240,118 @@ function parseVisibleItems(container) {
     // Filter noise
     if (node.children.length > 6) return; 
     const text = node.innerText;
-    if (!text || text.length < 3 || text.length > 300) return;
+    if (!text || text.length < 3 || text.length > 500) return;
     if (text.includes("View all") || text.includes("Group info") || text.includes("created group")) return;
     
+    // Save all text that might contain useful data
     const lines = text.split('\n').filter(l => l.trim());
-    const hasPhone = /\+?\d[\d\s-]{7,}/.test(text);
+    const hasPhone = extractPhones(text).length > 0;
     
-    // Save if looks like contact
+    // Save if looks like contact (has phone or at least 2 lines)
     if (hasPhone || lines.length >= 2) {
-      if (!scrapedData.has(text)) {
-        scrapedData.set(text, {
-          raw: text,
-          name: lines[0],
-          info: lines.slice(1).join(" ")
-        });
-        countSpan.innerText = scrapedData.size;
-      }
+      rawScrapedData.push({
+        raw: text,
+        lines: lines
+      });
+      
+      // Update count with unique phones found so far
+      const tempProcessed = processAllData();
+      countSpan.innerText = tempProcessed.length;
     }
   });
+}
+
+// --- 5. POST-PROCESSING (THE MAGIC!) ---
+
+function processAllData() {
+  const phoneMap = new Map(); // phone -> contact data
+  
+  for (const entry of rawScrapedData) {
+    const text = entry.raw;
+    const phones = extractPhones(text);
+    
+    if (phones.length > 0) {
+      for (const phone of phones) {
+        const normalized = normalizePhone(phone);
+        
+        // Skip if too short
+        if (normalized.replace(/\D/g, '').length < 10) continue;
+        
+        // Get or create entry
+        const existing = phoneMap.get(normalized);
+        
+        if (!existing) {
+          // New phone number - extract all info
+          const role = detectRole(text);
+          const nameCandidate = findBestName(entry.lines, phone);
+          const about = findAbout(entry.lines, phone, nameCandidate);
+          
+          phoneMap.set(normalized, {
+            name: nameCandidate,
+            phone: phone.trim(),
+            about: about,
+            role: role,
+            dmLink: generateWaLink(phone)
+          });
+        } else {
+          // Phone exists - merge/improve data
+          if (!existing.name || existing.name === '') {
+            const nameCandidate = findBestName(entry.lines, phone);
+            if (nameCandidate) existing.name = nameCandidate;
+          }
+          if (detectRole(text) === 'admin') {
+            existing.role = 'admin';
+          }
+          if (!existing.about || existing.about === '' || existing.about === 'Loading About…') {
+            const about = findAbout(entry.lines, phone, existing.name);
+            if (about) existing.about = about;
+          }
+        }
+      }
+    }
+  }
+  
+  // Convert to array and sort
+  const result = Array.from(phoneMap.values());
+  
+  // Sort: admins first, then by name
+  result.sort((a, b) => {
+    if (a.role === 'admin' && b.role !== 'admin') return -1;
+    if (b.role === 'admin' && a.role !== 'admin') return 1;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+  
+  return result;
+}
+
+function findBestName(lines, phoneToExclude) {
+  for (const line of lines) {
+    const cleaned = cleanName(line, phoneToExclude);
+    if (cleaned && cleaned.length > 1) {
+      // Skip if it's a known non-name pattern
+      if (cleaned.toLowerCase() === 'group admin') continue;
+      if (cleaned.toLowerCase().includes('loading')) continue;
+      return cleaned;
+    }
+  }
+  return '';
+}
+
+function findAbout(lines, phoneToExclude, nameToExclude) {
+  for (const line of lines) {
+    let cleaned = cleanName(line, phoneToExclude);
+    // Skip the name
+    if (nameToExclude && cleaned === nameToExclude) continue;
+    // Skip common noise
+    if (!cleaned) continue;
+    if (cleaned.toLowerCase() === 'group admin') continue;
+    if (cleaned.toLowerCase().includes('loading')) continue;
+    if (/^\+?\d[\d\s\-+.]+$/.test(cleaned)) continue;
+    if (cleaned.length > 2) {
+      return cleaned;
+    }
+  }
+  return '';
 }
 
 function findScrollParent(el) {
@@ -220,24 +367,27 @@ function findScrollParent(el) {
 }
 
 
-// --- 5. EXPORT ---
+// --- 6. EXPORT ---
 
 function download(type) {
-  const data = Array.from(scrapedData.values());
+  const data = processAllData();
   let content = "";
-  let filename = `wa_members_${Date.now()}.${type}`;
+  let filename = `wa_phones_${Date.now()}.${type}`;
   let mime = "";
 
   if (type === 'json') {
       content = JSON.stringify(data, null, 2);
       mime = "application/json";
   } else {
-      const headers = ["Name", "Info/Phone", "Raw Data"];
+      // CSV with proper headers
+      const headers = ["Name", "Phone", "About", "Role", "DM Link"];
       const rows = data.map(row => {
           const n = (row.name || "").replace(/"/g, '""');
-          const i = (row.info || "").replace(/"/g, '""');
-          const r = (row.raw || "").replace(/"/g, '""').replace(/\n/g, " ");
-          return `"${n}","${i}","${r}"`;
+          const p = (row.phone || "").replace(/"/g, '""');
+          const a = (row.about || "").replace(/"/g, '""');
+          const r = (row.role || "").replace(/"/g, '""');
+          const d = (row.dmLink || "").replace(/"/g, '""');
+          return `"${n}","${p}","${a}","${r}","${d}"`;
       });
       content = headers.join(",") + "\n" + rows.join("\n");
       mime = "text/csv";
@@ -251,4 +401,5 @@ function download(type) {
   link.setAttribute("download", filename);
   document.body.appendChild(link);
   link.click();
+  link.remove();
 }
