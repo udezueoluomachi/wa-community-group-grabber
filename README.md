@@ -88,12 +88,10 @@ Go to [web.whatsapp.com](https://web.whatsapp.com) and log in.
 [
   {
     "phone": "+234 916 194 6231",
-    "role": "admin",
     "dmLink": "https://wa.me/2349161946231"
   },
   {
     "phone": "+234 816 804 9268",
-    "role": "member",
     "dmLink": "https://wa.me/2348168049268"
   }
 ]
@@ -103,13 +101,11 @@ Go to [web.whatsapp.com](https://web.whatsapp.com) and log in.
 | Column | Description |
 |--------|-------------|
 | **Phone** | The phone number (e.g., `+234 916 194 6231`) |
-| **Role** | `admin` or `member` |
 | **DM Link** | Direct message link (e.g., `https://wa.me/2349161946231`) |
 
 ### Key Features
 *   🔢 **Phone numbers as unique IDs** - No duplicates!
 *   📱 **wa.me links** - Click to open DM directly
-*   👑 **Admin detection** - Automatically identifies group admins
 
 ---
 

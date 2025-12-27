@@ -1,12 +1,10 @@
 // --- PHONE NUMBER PARSER ---
-// Robust regex for international phone numbers
 const PHONE_REGEX = /\+?\d{1,4}[\s\-.]?\(?\d{1,4}\)?[\s\-.]?\d{1,4}[\s\-.]?\d{1,4}[\s\-.]?\d{0,9}/g;
 
 function extractPhones(text) {
   if (!text) return [];
   const matches = text.match(PHONE_REGEX);
   if (!matches) return [];
-  // Filter: must have at least 10 digits total
   return matches.filter(m => m.replace(/\D/g, '').length >= 10);
 }
 
@@ -17,12 +15,6 @@ function normalizePhone(phone) {
 function generateWaLink(phone) {
   const digits = normalizePhone(phone).replace(/^\+/, '');
   return `https://wa.me/${digits}`;
-}
-
-function detectRole(text) {
-  const lower = (text || '').toLowerCase();
-  if (lower.includes('group admin') || lower.includes('admin')) return 'admin';
-  return 'member';
 }
 
 // --- 1. UI INJECTION ---
@@ -72,7 +64,7 @@ const closeBtn = document.getElementById('wa-scraper-close');
 let isPanelOpen = false;
 let isSelecting = false;
 let isScraping = false;
-let phoneMap = new Map(); // normalized phone -> { phone, role, dmLink }
+let phoneMap = new Map(); // normalized phone -> { phone, dmLink }
 let scrollInterval = null;
 let hoverEl = null;
 let containerEl = null;
@@ -206,24 +198,17 @@ function parseVisibleItems(container) {
     if (!text || text.length < 3 || text.length > 500) return;
     if (text.includes("View all") || text.includes("Group info") || text.includes("created group")) return;
 
-    // Extract ALL phone numbers from this text block
     const phones = extractPhones(text);
-    const role = detectRole(text);
 
     for (const phone of phones) {
       const normalized = normalizePhone(phone);
 
-      // Add or update (upgrade to admin if detected)
       if (!phoneMap.has(normalized)) {
         phoneMap.set(normalized, {
           phone: phone.trim(),
-          role: role,
           dmLink: generateWaLink(phone)
         });
         countSpan.innerText = phoneMap.size;
-      } else if (role === 'admin') {
-        // Upgrade to admin if we see this number with admin role
-        phoneMap.get(normalized).role = 'admin';
       }
     }
   });
@@ -246,13 +231,6 @@ function findScrollParent(el) {
 function download(type) {
   const data = Array.from(phoneMap.values());
 
-  // Sort: admins first
-  data.sort((a, b) => {
-    if (a.role === 'admin' && b.role !== 'admin') return -1;
-    if (b.role === 'admin' && a.role !== 'admin') return 1;
-    return 0;
-  });
-
   let content = "";
   let filename = `wa_phones_${Date.now()}.${type}`;
   let mime = "";
@@ -261,12 +239,11 @@ function download(type) {
     content = JSON.stringify(data, null, 2);
     mime = "application/json";
   } else {
-    const headers = ["Phone", "Role", "DM Link"];
+    const headers = ["Phone", "DM Link"];
     const rows = data.map(row => {
       const p = (row.phone || "").replace(/"/g, '""');
-      const r = (row.role || "").replace(/"/g, '""');
       const d = (row.dmLink || "").replace(/"/g, '""');
-      return `"${p}","${r}","${d}"`;
+      return `"${p}","${d}"`;
     });
     content = headers.join(",") + "\n" + rows.join("\n");
     mime = "text/csv";
