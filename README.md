@@ -87,16 +87,12 @@ Go to [web.whatsapp.com](https://web.whatsapp.com) and log in.
 ```json
 [
   {
-    "name": "Church Boy",
     "phone": "+234 916 194 6231",
-    "about": "Heart of Worship",
     "role": "admin",
     "dmLink": "https://wa.me/2349161946231"
   },
   {
-    "name": "Amatus",
     "phone": "+234 816 804 9268",
-    "about": "Carrying a heart full of grace",
     "role": "member",
     "dmLink": "https://wa.me/2348168049268"
   }
@@ -106,16 +102,13 @@ Go to [web.whatsapp.com](https://web.whatsapp.com) and log in.
 ### CSV Columns
 | Column | Description |
 |--------|-------------|
-| **Name** | The user's display name (cleaned, without "~" prefix) |
-| **Phone** | Extracted phone number (e.g., `+234 916 194 6231`) |
-| **About** | The user's bio/status |
+| **Phone** | The phone number (e.g., `+234 916 194 6231`) |
 | **Role** | `admin` or `member` |
 | **DM Link** | Direct message link (e.g., `https://wa.me/2349161946231`) |
 
 ### Key Features
 *   🔢 **Phone numbers as unique IDs** - No duplicates!
 *   📱 **wa.me links** - Click to open DM directly
-*   🧹 **Clean names** - Removes "~" prefix and "Loading About…" noise
 *   👑 **Admin detection** - Automatically identifies group admins
 
 ---
