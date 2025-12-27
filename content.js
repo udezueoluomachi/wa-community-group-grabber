@@ -1,7 +1,10 @@
 // --- 1. UI INJECTION ---
 const panelHTML = `
   <div id="wa-scraper-header">
-    <span>Group Scraper</span>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <img src="${chrome.runtime.getURL('logo.png')}" style="width:20px; height:20px; border-radius:50%;">
+      <span>Group Scraper</span>
+    </div>
     <span id="wa-scraper-close">&times;</span>
   </div>
   <div id="wa-scraper-body">

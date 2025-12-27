@@ -5,7 +5,13 @@
   "description": "Adds a control panel to WhatsApp Web for scraping group members.",
   "permissions": ["activeTab", "scripting"],
   "action": {
-    "default_title": "Toggle Scraper Panel"
+    "default_title": "Toggle Scraper Panel",
+    "default_icon": "logo.png"
+  },
+  "icons": {
+    "16": "logo.png",
+    "48": "logo.png",
+    "128": "logo.png"
   },
   "background": {
     "service_worker": "background.js"
@@ -15,6 +21,12 @@
       "matches": ["https://web.whatsapp.com/*"],
       "js": ["content.js"],
       "css": ["style.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["logo.png"],
+      "matches": ["https://web.whatsapp.com/*"]
     }
   ]
 }
