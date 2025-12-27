@@ -1,0 +1,89 @@
+/* Floating Panel */
+#wa-scraper-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 250px;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  z-index: 999999;
+  font-family: 'Segoe UI', sans-serif;
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+  display: none; /* Hidden by default */
+  transition: opacity 0.2s;
+}
+
+#wa-scraper-header {
+  background-color: #128C7E;
+  color: white;
+  padding: 12px 15px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#wa-scraper-close {
+  cursor: pointer;
+  font-size: 18px;
+  opacity: 0.8;
+}
+#wa-scraper-close:hover { opacity: 1; }
+
+#wa-scraper-body {
+  padding: 15px;
+}
+
+.scraper-btn {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-bottom: 8px;
+  transition: background 0.2s;
+}
+
+#btn-select { background-color: #007bff; color: white; }
+#btn-select:hover { background-color: #0056b3; }
+
+#btn-stop { background-color: #dc3545; color: white; display: none; }
+#btn-stop:hover { background-color: #a71d2a; }
+
+#btn-download { background-color: #28a745; color: white; display: none; }
+#btn-download:hover { background-color: #1e7e34; }
+
+.scraper-stat {
+  font-size: 13px;
+  color: #555;
+  margin-top: 5px;
+  text-align: center;
+}
+
+#scraper-count {
+  font-weight: bold;
+  color: #128C7E;
+  font-size: 16px;
+}
+
+/* Highlight Classes */
+.scraper-hover {
+  outline: 4px solid #007bff !important;
+  cursor: crosshair !important;
+  background-color: rgba(0, 123, 255, 0.1);
+}
+
+.scraper-target {
+  outline: 4px solid #28a745 !important;
+  position: relative;
+}
+.scraper-target::after {
+  content: "Scraping...";
+  position: absolute;
+  top: 0; right: 0;
+  background: #28a745; color: white;
+  padding: 2px 6px; font-size: 10px;
+}
